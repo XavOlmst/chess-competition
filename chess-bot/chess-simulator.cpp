@@ -9,8 +9,10 @@ using namespace ChessSimulator;
 
 int getBoardScore(chess::Board& board);
 int getMaterialScore(const chess::Board& board);
-int getMobilityScore(const chess::Board& board, bool isWhite);
-int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha, int beta);
+int getMobilityScore(const chess::Board& board);
+int getKingSafety(const chess::Board& board);
+int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha = std::numeric_limits<int>::min()
+	, int beta = std::numeric_limits<int>::max(), bool firstTest = true);
 
 int pawnValues[64] =
 {
@@ -104,38 +106,35 @@ std::string ChessSimulator::Move(std::string fen) {
 	std::uniform_int_distribution<> dist(0, moves.size() - 1);
 	chess::Move move;
 
-	move = moves[dist(gen)];
-
 	if (board.sideToMove() == chess::Color::WHITE)
 	{
-		minmaxMove(2, true, board, move, std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+		minmaxMove(3, true, board, move);
 	}
 	else
 	{
-		return chess::uci::moveToUci(move);
+		move = moves[dist(gen)];
 	}
 
-	return chess::uci::moveToUci(move);
+	if (moves.find(move))
+		return chess::uci::moveToUci(move);
+	else
+		return "";
 }
 
-int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha, int beta)
+int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha, int beta, bool firstTest)
 {
-	chess::Movelist moves;
-	chess::movegen::legalmoves(moves, board);
-
-	if (depth == 0 || moves.size() == 0)
+	if (depth == 0)
 	{
 		//determine the board score
 
-		//1. compare materials
+		int boardScore = 0;
+		boardScore = getBoardScore(board);
 
-		int materialScore = 0;
-		materialScore = getBoardScore(board);
-
-		return materialScore;
+		return boardScore;
 	}
 
-
+	chess::Movelist moves;
+	chess::movegen::legalmoves(moves, board);
 
 	if (isMaximizing)
 	{
@@ -145,7 +144,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 		{
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, alpha, beta);
+			int evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, alpha, beta, false);
 
 			maxValue = fmax(maxValue, evaluation);
 			alpha = fmax(alpha, evaluation);
@@ -156,7 +155,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 				break;
 			}
 
-			if (maxValue == evaluation)
+			if (maxValue == evaluation && firstTest)
 			{
 				bestMove = move;
 			}
@@ -175,7 +174,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 		{
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, alpha, beta);
+			int evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, alpha, beta, false);
 
 			minValue = fmin(minValue, evaluation);
 			beta = fmin(beta, evaluation);
@@ -186,7 +185,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 				break;
 			}
 
-			if (minValue == evaluation)
+			if (minValue == evaluation && firstTest)
 			{
 				bestMove = move;
 			}
@@ -203,15 +202,14 @@ int getBoardScore(chess::Board& board)
 	//determining the score of the board based on materials
 	int materialScore = getMaterialScore(board);
 
-	//int mobilityScore = getMobilityScore(board, isWhite);
-
-	//3. compare central control
+	int mobilityScore = getMobilityScore(board);
 
 	//4. king safety
+	int kingSafety = getKingSafety(board);
 
 	//5.compare pawn structure
 
-	return materialScore;// +mobilityScore;
+	return materialScore + mobilityScore + kingSafety;
 }
 
 int getMaterialScore(const chess::Board& board)
@@ -227,78 +225,124 @@ int getMaterialScore(const chess::Board& board)
 
 	if (board.sideToMove() == chess::Color::WHITE)
 	{
-		return materialScore;
+		return -materialScore;
 	}
 	else
 	{
-		return -materialScore;
+		return materialScore;
 	}
 }
 
-int getMobilityScore(const chess::Board& board, bool isWhite)
+int getMobilityScore(const chess::Board& board)
 {
 	int mobilityScore = 0;
 
-	if (isWhite)
+	if (board.sideToMove() == chess::Color::BLACK)
 	{
-		for (int i = 0; i < 64; i++)
+		for (int x = 0; x < 8; x++)
 		{
-			if (chess::Piece piece = board.at(chess::Square(i)); piece != chess::Piece::NONE)
+			for (int y = 0; y < 8; y++)
 			{
-				switch (piece)
+				int index = y + x * 8;
+
+				if (chess::Piece piece = board.at(chess::Square(index)); piece != chess::Piece::NONE)
 				{
-				case 0:
-					mobilityScore += pawnValues[i];
-					break;
-				case 1:
-					mobilityScore += knightValues[i];
-					break;
-				case 2:
-					mobilityScore += bishopValues[i];
-					break;
-				case 3:
-					mobilityScore += rookValues[i];
-					break;
-				case 4:
-					mobilityScore += queenValues[i];
-					break;
-				case 5:
-					mobilityScore += kingValues[i];
-					break;
-				default:
-					break;
+					switch (piece)
+					{
+					case 0:
+						mobilityScore += pawnValues[index];
+
+						if ((x >= 3 && x <= 4) && (y >= 3 && y <= 4))
+						{
+							mobilityScore += 10;
+						}
+
+						break;
+					case 1:
+						mobilityScore += knightValues[index];
+
+						if ((x >= 2 && x <= 5) && (y >= 2 && y <= 5))
+						{
+							mobilityScore += 20;
+						}
+
+						break;
+					case 2:
+						mobilityScore += bishopValues[index];
+
+						if ((x >= 2 && x <= 5) && (y >= 2 && y <= 5))
+						{
+							mobilityScore += 30;
+						}
+
+						break;
+					case 3:
+						mobilityScore += rookValues[index];
+						break;
+					case 4:
+						mobilityScore += queenValues[index];
+						break;
+					case 5:
+						mobilityScore += kingValues[index];
+						break;
+					default:
+						break;
+					}
 				}
 			}
 		}
 	}
 	else
 	{
-		for (int i = 63; i >= 0; i--)
+		for (int x = 7; x >= 0; x--)
 		{
-			if (chess::Piece piece = board.at(chess::Square(i)); piece != chess::Piece::NONE)
+			for (int y = 7; y >= 0; y--)
 			{
-				switch (piece)
+				int index = y + x * 8;
+
+				if (chess::Piece piece = board.at(chess::Square(index)); piece != chess::Piece::NONE)
 				{
-				case 0:
-					mobilityScore += pawnValues[i];
-					break;
-				case 1:
-					mobilityScore += knightValues[i];
-					break;
-				case 2:
-					mobilityScore += bishopValues[i];
-					break;
-				case 3:
-					mobilityScore += rookValues[i];
-					break;
-				case 4:
-					mobilityScore += queenValues[i];
-					break;
-				case 5:
-					mobilityScore += kingValues[i];
-					break;
-				default:
-					break;
+					switch (piece)
+					{
+					case 0:
+						mobilityScore += pawnValues[index];
+
+						if ((x >= 3 && x <= 4) && (y >= 3 && y <= 4))
+						{
+							mobilityScore += 10;
+						}
+
+						break;
+					case 1:
+						mobilityScore += knightValues[index];
+
+						if ((x >= 2 && x <= 5) && (y >= 2 && y <= 5))
+						{
+							mobilityScore += 20;
+						}
+
+						break;
+					case 2:
+						mobilityScore += bishopValues[index];
+
+						if ((x >= 2 && x <= 5) && (y >= 2 && y <= 5))
+						{
+							mobilityScore += 30;
+						}
+
+						break;
+					case 3:
+						mobilityScore += rookValues[index];
+						break;
+					case 4:
+						mobilityScore += queenValues[index];
+						break;
+					case 5:
+						mobilityScore += kingValues[index];
+						break;
+					default:
+						break;
+					}
 				}
 			}
 		}
@@ -306,4 +350,40 @@ int getMobilityScore(const chess::Board& board, bool isWhite)
 	
 
 	return mobilityScore;
+}
+
+int getKingSafety(const chess::Board& board)
+{
+	int kingSafetyScore = 0;
+
+	for (int i = 0; i < 8; ++i)
+	{
+		for (int j = 0; j < 8; ++j)
+		{
+			int index = i + j * 8;
+
+			auto piece = board.at(chess::Square(index));
+			if (piece == chess::Piece::WHITEKING) {
+				//whiteKingFound = true;
+				// Bonus score for safe position of the white king
+				if (chess::Square(index).back_rank(chess::Square(index), chess::Color::WHITE))
+					kingSafetyScore += 50;
+			}
+			else if (piece == chess::Piece::BLACKKING) {
+				//whiteKingFound = true;
+				// Bonus score for safe position of the white king
+				if (chess::Square(index).back_rank(chess::Square(index), chess::Color::BLACK))
+					kingSafetyScore -= 50;
+			}
+		}
+	}
+
+	if (board.sideToMove() == chess::Color::BLACK)
+	{
+		return kingSafetyScore;
+	}
+	else
+	{
+		return -kingSafetyScore;
+	}
 }
