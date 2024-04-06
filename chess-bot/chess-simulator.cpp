@@ -96,15 +96,8 @@ std::string ChessSimulator::Move(std::string fen) {
 
 	chess::Board board(fen);
 	chess::Movelist moves;
-	chess::movegen::legalmoves(moves, board);
-	if (moves.size() == 0)
-		return "";
+    chess::Move move{};
 
-	// get random move
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<> dist(0, moves.size() - 1);
-	chess::Move move;
 
 	if (board.sideToMove() == chess::Color::WHITE)
 	{
@@ -112,13 +105,20 @@ std::string ChessSimulator::Move(std::string fen) {
 	}
 	else
 	{
+        chess::movegen::legalmoves(moves, board);
+        if (moves.empty())
+            return "";
+
+        // get random move
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dist(0, moves.size() - 1);
+
+
 		move = moves[dist(gen)];
 	}
 
-	if (moves.find(move))
-		return chess::uci::moveToUci(move);
-	else
-		return "";
+    return chess::uci::moveToUci(move);
 }
 
 int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha, int beta, bool firstTest)
@@ -243,7 +243,7 @@ int getMobilityScore(const chess::Board& board)
 		{
 			for (int y = 0; y < 8; y++)
 			{
-				int index = y + x * 8;
+				int index = y + (x << 3);
 
 				if (chess::Piece piece = board.at(chess::Square(index)); piece != chess::Piece::NONE)
 				{
@@ -298,7 +298,7 @@ int getMobilityScore(const chess::Board& board)
 		{
 			for (int y = 7; y >= 0; y--)
 			{
-				int index = y + x * 8;
+                int index = y + (x << 3);
 
 				if (chess::Piece piece = board.at(chess::Square(index)); piece != chess::Piece::NONE)
 				{
@@ -360,7 +360,7 @@ int getKingSafety(const chess::Board& board)
 	{
 		for (int j = 0; j < 8; ++j)
 		{
-			int index = i + j * 8;
+			int index = i + (j << 3);
 
 			auto piece = board.at(chess::Square(index));
 			if (piece == chess::Piece::WHITEKING) {
