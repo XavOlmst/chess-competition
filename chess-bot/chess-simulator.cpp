@@ -239,6 +239,11 @@ int getMobilityScore(const chess::Board& board)
 
 	if (board.sideToMove() == chess::Color::BLACK)
 	{
+        if(board.isAttacked(chess::Square(board.kingSq(chess::Color::WHITE)), chess::Color::BLACK))
+        {
+            mobilityScore += 500;
+        }
+
 		for (int x = 0; x < 8; x++)
 		{
 			for (int y = 0; y < 8; y++)
@@ -294,6 +299,11 @@ int getMobilityScore(const chess::Board& board)
 	}
 	else
 	{
+        if(board.isAttacked(chess::Square(board.kingSq(chess::Color::BLACK)), chess::Color::WHITE))
+        {
+            mobilityScore += 500;
+        }
+
 		for (int x = 7; x >= 0; x--)
 		{
 			for (int y = 7; y >= 0; y--)
@@ -355,35 +365,25 @@ int getMobilityScore(const chess::Board& board)
 int getKingSafety(const chess::Board& board)
 {
 	int kingSafetyScore = 0;
-
-	for (int i = 0; i < 8; ++i)
-	{
-		for (int j = 0; j < 8; ++j)
-		{
-			int index = i + (j << 3);
-
-			auto piece = board.at(chess::Square(index));
-			if (piece == chess::Piece::WHITEKING) {
-				//whiteKingFound = true;
-				// Bonus score for safe position of the white king
-				if (chess::Square(index).back_rank(chess::Square(index), chess::Color::WHITE))
-					kingSafetyScore += 50;
-			}
-			else if (piece == chess::Piece::BLACKKING) {
-				//whiteKingFound = true;
-				// Bonus score for safe position of the white king
-				if (chess::Square(index).back_rank(chess::Square(index), chess::Color::BLACK))
-					kingSafetyScore -= 50;
-			}
-		}
-	}
+    chess::Color white = chess::Color::WHITE;
+    chess::Color black = chess::Color::BLACK;
+    chess::Square whiteKingSquare = board.kingSq(white);
+    chess::Square blackKingSquare = board.kingSq(black);
 
 	if (board.sideToMove() == chess::Color::BLACK)
 	{
-		return kingSafetyScore;
+        if(chess::Square().back_rank(blackKingSquare, black))
+        {
+            kingSafetyScore += 50;
+        }
 	}
 	else
 	{
-		return -kingSafetyScore;
+        if(chess::Square().back_rank(whiteKingSquare, white))
+        {
+            kingSafetyScore += 50;
+        }
 	}
+
+    return kingSafetyScore;
 }
