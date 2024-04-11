@@ -98,25 +98,24 @@ std::string ChessSimulator::Move(std::string fen) {
 	chess::Movelist moves;
     chess::Move move{};
 
+    chess::movegen::legalmoves(moves, board);
+    if (moves.empty())
+        return "";
 
 	if (board.sideToMove() == chess::Color::WHITE)
 	{
 		minmaxMove(3, true, board, move);
+
+        if(moves.find(move))
+            return chess::uci::moveToUci(move);
 	}
-	else
-	{
-        chess::movegen::legalmoves(moves, board);
-        if (moves.empty())
-            return "";
 
-        // get random move
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dist(0, moves.size() - 1);
+    // get random move
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(0, moves.size() - 1);
 
-
-		move = moves[dist(gen)];
-	}
+    move = moves[dist(gen)];
 
     return chess::uci::moveToUci(move);
 }
@@ -202,6 +201,7 @@ int getBoardScore(chess::Board& board)
 	//determining the score of the board based on materials
 	int materialScore = getMaterialScore(board);
 
+    //check mobility of pieces
 	int mobilityScore = getMobilityScore(board);
 
 	//4. king safety
@@ -362,6 +362,8 @@ int getMobilityScore(const chess::Board& board)
 	return mobilityScore;
 }
 
+int kingSafetySquares[8] = {0, 0, 50, 75, 88, 94, 97, 99};
+
 int getKingSafety(const chess::Board& board)
 {
 	int kingSafetyScore = 0;
@@ -372,17 +374,61 @@ int getKingSafety(const chess::Board& board)
 
 	if (board.sideToMove() == chess::Color::BLACK)
 	{
-        if(chess::Square().back_rank(blackKingSquare, black))
+        if(chess::Square::back_rank(blackKingSquare, black))
         {
             kingSafetyScore += 50;
         }
+
+        int squaresAttacked = 0;
+
+        for(int x = -1; x <= 1; x++)
+        {
+            for(int y = -1; y <= 1; y++)
+            {
+                chess::File file = blackKingSquare.file() + y;
+                chess::Rank rank = blackKingSquare.rank() + x;
+
+                if(chess::Square::is_valid(rank, file))
+                {
+                    chess::Square square = chess::Square(file, rank);
+                    if(board.isAttacked(square, white))
+                    {
+                        squaresAttacked++;
+                    }
+                }
+            }
+        }
+
+        kingSafetyScore -= kingSafetySquares[squaresAttacked];
 	}
 	else
 	{
-        if(chess::Square().back_rank(whiteKingSquare, white))
+        if(chess::Square::back_rank(whiteKingSquare, white))
         {
             kingSafetyScore += 50;
         }
+
+        int squaresAttacked = 0;
+
+        for(int x = -1; x <= 1; x++)
+        {
+            for(int y = -1; y <= 1; y++)
+            {
+                chess::File file = whiteKingSquare.file() + y;
+                chess::Rank rank = whiteKingSquare.rank() + x;
+
+                if(chess::Square::is_valid(rank, file))
+                {
+                    chess::Square square = chess::Square(file, rank);
+                    if(board.isAttacked(square, black))
+                    {
+                        squaresAttacked++;
+                    }
+                }
+            }
+        }
+
+        kingSafetyScore -= kingSafetySquares[squaresAttacked];
 	}
 
     return kingSafetyScore;
