@@ -11,8 +11,8 @@ int getBoardScore(chess::Board& board);
 int getMaterialScore(const chess::Board& board);
 int getMobilityScore(const chess::Board& board);
 int getKingSafety(const chess::Board& board);
-int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha = std::numeric_limits<int>::min()
-	, int beta = std::numeric_limits<int>::max(), bool firstTest = true);
+int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, const chess::Movelist& initialMoves,
+               int alpha = std::numeric_limits<int>::min(), int beta = std::numeric_limits<int>::max());
 
 int pawnValues[64] =
 {
@@ -104,9 +104,11 @@ std::string ChessSimulator::Move(std::string fen) {
 
 	if (board.sideToMove() == chess::Color::WHITE)
 	{
-		minmaxMove(3, true, board, move);
+		minmaxMove(3, true, board, move, moves);
 
-        if(moves.find(move))
+        auto piece = board.at(move.from());
+
+        if(moves.find(move) != -1 && piece != chess::Piece::NONE)
             return chess::uci::moveToUci(move);
 	}
 
@@ -120,7 +122,7 @@ std::string ChessSimulator::Move(std::string fen) {
     return chess::uci::moveToUci(move);
 }
 
-int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, int alpha, int beta, bool firstTest)
+int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& bestMove, const chess::Movelist& initialMoves, int alpha, int beta)
 {
 	if (depth == 0)
 	{
@@ -143,7 +145,10 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 		{
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, alpha, beta, false);
+			int evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, initialMoves, alpha, beta);
+
+            if(tempBoard.isRepetition())
+                evaluation -= 1000;
 
 			maxValue = fmax(maxValue, evaluation);
 			alpha = fmax(alpha, evaluation);
@@ -154,7 +159,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 				break;
 			}
 
-			if (maxValue == evaluation && firstTest)
+			if (maxValue == evaluation && initialMoves.find(move) != -1)
 			{
 				bestMove = move;
 			}
@@ -173,7 +178,10 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 		{
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, alpha, beta, false);
+			int evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, initialMoves, alpha, beta);
+
+            if(tempBoard.isRepetition())
+                evaluation += 1000;
 
 			minValue = fmin(minValue, evaluation);
 			beta = fmin(beta, evaluation);
@@ -184,7 +192,7 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 				break;
 			}
 
-			if (minValue == evaluation && firstTest)
+			if (minValue == evaluation && initialMoves.find(move) != -1)
 			{
 				bestMove = move;
 			}
@@ -223,11 +231,11 @@ int getMaterialScore(const chess::Board& board)
 	materialScore += 320 * (board.pieces(chess::PieceType::KNIGHT, chess::Color::WHITE).count() - board.pieces(chess::PieceType::KNIGHT, chess::Color::BLACK).count());
 	materialScore += 100 * (board.pieces(chess::PieceType::PAWN, chess::Color::WHITE).count() - board.pieces(chess::PieceType::PAWN, chess::Color::BLACK).count());
 
-	if (board.sideToMove() == chess::Color::WHITE)
+	//if (board.sideToMove() == chess::Color::WHITE)
 	{
-		return -materialScore;
+		//return -materialScore;
 	}
-	else
+	//else
 	{
 		return materialScore;
 	}
@@ -379,6 +387,11 @@ int getKingSafety(const chess::Board& board)
             kingSafetyScore += 50;
         }
 
+        if(board.inCheck())
+        {
+            kingSafetyScore -= 250;
+        }
+
         int squaresAttacked = 0;
 
         for(int x = -1; x <= 1; x++)
@@ -393,6 +406,8 @@ int getKingSafety(const chess::Board& board)
                     chess::Square square = chess::Square(file, rank);
                     if(board.isAttacked(square, white))
                     {
+                        if(square == blackKingSquare)
+                            kingSafetyScore -= 100;
                         squaresAttacked++;
                     }
                 }
@@ -406,6 +421,11 @@ int getKingSafety(const chess::Board& board)
         if(chess::Square::back_rank(whiteKingSquare, white))
         {
             kingSafetyScore += 50;
+        }
+
+        if(board.inCheck())
+        {
+            kingSafetyScore -= 250;
         }
 
         int squaresAttacked = 0;
