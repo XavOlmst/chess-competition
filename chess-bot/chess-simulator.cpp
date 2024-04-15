@@ -1,4 +1,5 @@
 #include "chess-simulator.h"
+#include "Node.h"
 // disservin's lib. drop a star on his hard work!
 // https://github.com/Disservin/chess-library
 #include "chess.hpp"
@@ -137,18 +138,40 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 	chess::Movelist moves;
 	chess::movegen::legalmoves(moves, board);
 
+    chess::Board tempBoard(board);
+    int evaluation = 0;
+
 	if (isMaximizing)
 	{
 		int maxValue = std::numeric_limits<int>::min();
-		chess::Board tempBoard(board);
+
 		for (chess::Move move : moves)
 		{
+            if(tempBoard.isCapture(move))
+            {
+                evaluation += 400;
+            }
+
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, initialMoves, alpha, beta);
+			evaluation = minmaxMove(depth - 1, false, tempBoard, bestMove, initialMoves, alpha, beta);
 
-            if(tempBoard.isRepetition())
-                evaluation -= 1000;
+            auto gameResults = tempBoard.isGameOver();
+
+            if (gameResults.first == chess::GameResultReason::CHECKMATE)
+            {
+                evaluation += 100000;
+            }
+
+            if(gameResults.second == chess::GameResult::DRAW)
+            {
+                if (gameResults.first == chess::GameResultReason::THREEFOLD_REPETITION)
+                {
+                    evaluation -= 5000;
+                }
+
+                evaluation -= 5000;
+            }
 
 			maxValue = fmax(maxValue, evaluation);
 			alpha = fmax(alpha, evaluation);
@@ -172,16 +195,31 @@ int minmaxMove(int depth, bool isMaximizing, chess::Board& board, chess::Move& b
 	else
 	{
 		int minValue = std::numeric_limits<int>::max();
-		chess::Board tempBoard(board);
 
 		for (chess::Move move : moves)
 		{
+            if(tempBoard.isCapture(move))
+            {
+                evaluation += 400;
+            }
+
 			tempBoard.makeMove(move);
 
-			int evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, initialMoves, alpha, beta);
+			evaluation = minmaxMove(depth - 1, true, tempBoard, bestMove, initialMoves, alpha, beta);
 
-            if(tempBoard.isRepetition())
-                evaluation += 1000;
+            auto gameResults = tempBoard.isGameOver();
+
+
+
+            if(gameResults.second == chess::GameResult::DRAW)
+            {
+                if (gameResults.first == chess::GameResultReason::THREEFOLD_REPETITION)
+                {
+                    evaluation += 5000;
+                }
+
+                evaluation += 5000;
+            }
 
 			minValue = fmin(minValue, evaluation);
 			beta = fmin(beta, evaluation);
@@ -217,7 +255,7 @@ int getBoardScore(chess::Board& board)
 
 	//5.compare pawn structure
 
-	return materialScore + mobilityScore + kingSafety;
+	return materialScore;// + mobilityScore + kingSafety;
 }
 
 int getMaterialScore(const chess::Board& board)
@@ -231,14 +269,7 @@ int getMaterialScore(const chess::Board& board)
 	materialScore += 320 * (board.pieces(chess::PieceType::KNIGHT, chess::Color::WHITE).count() - board.pieces(chess::PieceType::KNIGHT, chess::Color::BLACK).count());
 	materialScore += 100 * (board.pieces(chess::PieceType::PAWN, chess::Color::WHITE).count() - board.pieces(chess::PieceType::PAWN, chess::Color::BLACK).count());
 
-	//if (board.sideToMove() == chess::Color::WHITE)
-	{
-		//return -materialScore;
-	}
-	//else
-	{
-		return materialScore;
-	}
+    return materialScore;
 }
 
 int getMobilityScore(const chess::Board& board)
