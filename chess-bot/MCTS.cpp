@@ -2,19 +2,19 @@
 // Created by xavier.olmstead on 4/15/2024.
 //
 
-#include "Node.h"
+#include "MCTS.h"
 
 namespace xoxo {
 
     Node* Node::selectChild()
     {
-        float best_score = -1.0;
+        double best_score = -1.0;
         Node* best_child = nullptr;
 
         for(Node* child : children)
         {
-            double exploitation_term = 0;
-            double exploration_term = 0;
+            double exploitation_term = DEFAULT_VALUE;
+            double exploration_term = DEFAULT_VALUE;
 
             if (child->visits > 0)
             {
@@ -55,13 +55,13 @@ namespace xoxo {
         while(tempBoard.isGameOver().first == chess::GameResultReason::NONE)
         {
             chess::Movelist moves;
-            chess::movegen::legalmoves(moves, board);
+            chess::movegen::legalmoves(moves, tempBoard);
 
             if(moves.empty())
             {
                 if(tempBoard.isGameOver().first == chess::GameResultReason::CHECKMATE)
                 {
-                    return (tempBoard.sideToMove() == chess::Color::WHITE) ? -1 : 1; //TODO: might need to swap these, not sure
+                    return (tempBoard.sideToMove() == us) ? 1 : -1; //TODO: might need to swap these, not sure
                 }
                 else
                 {
@@ -92,4 +92,51 @@ namespace xoxo {
         }
     }
 
+    void MCTS::search(int iterations) {
+        for(int i = 0; i < iterations; i++)
+        {
+            Node* node = selectNode();
+            node->expand();
+            int results = node->simulate();
+
+            node->backpropagate(results);
+        }
+    }
+
+    Node* MCTS::selectNode() {
+        Node* currentNode = root;
+        while(!currentNode->children.empty())
+        {
+            currentNode = currentNode->selectChild();
+        }
+
+        return currentNode;
+    }
+
+    chess::Move* MCTS::getBestMove() {
+        Node* best_child = nullptr;
+        double best_score = -1;
+
+        for(Node* child : root->children)
+        {
+            double score;
+
+            if(child->visits > 0)
+            {
+                score = static_cast<double>(child->wins) / child->visits;
+            }
+            else
+            {
+                score = DEFAULT_VALUE;
+            }
+
+            if(score > best_score)
+            {
+                best_score = score;
+                best_child = child;
+            }
+        }
+
+        return best_child->move;
+    }
 } // xoxo

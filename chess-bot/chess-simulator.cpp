@@ -1,11 +1,11 @@
 #include "chess-simulator.h"
-#include "Node.h"
+#include "MCTS.h"
 // disservin's lib. drop a star on his hard work!
 // https://github.com/Disservin/chess-library
 #include "chess.hpp"
 #include <random>
 #include <map>
-#include <map>
+#include "MCTS.h"
 using namespace ChessSimulator;
 
 int getBoardScore(chess::Board& board);
@@ -103,15 +103,25 @@ std::string ChessSimulator::Move(std::string fen) {
     if (moves.empty())
         return "";
 
-	if (board.sideToMove() == chess::Color::WHITE)
-	{
-		minmaxMove(3, true, board, move, moves);
+    if (board.sideToMove() == chess::Color::WHITE) {
+/*        minmaxMove(3, true, board, move, moves);
 
         auto piece = board.at(move.from());
 
-        if(moves.find(move) != -1 && piece != chess::Piece::NONE)
+        if (moves.find(move) != -1 && piece != chess::Piece::NONE)
+            return chess::uci::moveToUci(move);*/
+    } else {
+        xoxo::MCTS mcts(&board);
+
+        mcts.search(5);
+
+        move = *mcts.getBestMove();
+
+        auto piece = board.at(move.from());
+
+        if (moves.find(move) != -1 && piece != chess::Piece::NONE)
             return chess::uci::moveToUci(move);
-	}
+    }
 
     // get random move
     std::random_device rd;
