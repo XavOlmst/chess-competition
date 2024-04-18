@@ -3,6 +3,7 @@
 //
 
 #include "MCTS.h"
+#include "MinMax.h"
 
 namespace xoxo {
 
@@ -13,14 +14,8 @@ namespace xoxo {
 
         for(Node* child : children)
         {
-            double exploitation_term = DEFAULT_VALUE;
-            double exploration_term = DEFAULT_VALUE;
-
-            if (child->visits > 0)
-            {
-                exploitation_term = static_cast<double>(child->wins) / child->visits;
-                exploration_term = sqrt(2.0 * log(static_cast<double>(visits)) / child->visits);
-            }
+            double exploitation_term = static_cast<double>(child->wins) / (child->visits + 0.000001f);
+            double exploration_term = 2.0 * sqrt(log(static_cast<double>(visits)) / (child->visits + 0.000001f));
 
             double score = exploitation_term + exploration_term;
 
@@ -52,31 +47,48 @@ namespace xoxo {
     {
         chess::Board tempBoard(board);
 
-        while(tempBoard.isGameOver().first == chess::GameResultReason::NONE)
+        do
         {
             chess::Movelist moves;
             chess::movegen::legalmoves(moves, tempBoard);
 
-            if(moves.empty())
             {
                 if(tempBoard.isGameOver().first == chess::GameResultReason::CHECKMATE)
                 {
-                    return (tempBoard.sideToMove() == us) ? 1 : -1; //TODO: might need to swap these, not sure
+                    auto color = tempBoard.sideToMove();
+                    return (color == us) ? 1 : -1; //TODO: might need to swap these, not sure
                 }
-                else
+                else if(tempBoard.isGameOver().first != chess::GameResultReason::NONE)
                 {
-                    return 0;
+                    return DEFAULT_VALUE;
                 }
             }
 
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_int_distribution<> dist(0, moves.size() - 1);
+            bool madeMove = false;
 
-            tempBoard.makeMove(moves[dist(gen)]);
-        }
+            for(chess::Move move : moves)
+            {
+                if(tempBoard.isCapture(move) && tempBoard.sideToMove() != us)
+                {
+                    tempBoard.makeMove(move);
+                    madeMove = true;
+                    break;
+                }
+            }
 
-        return 0;
+            if(!madeMove)
+            {
+                chess::Move move;
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<> dist(0, moves.size() - 1);
+
+                move = moves[dist(gen)];
+
+                tempBoard.makeMove(move);
+            }
+
+        } while (true);
     }
 
     void Node::backpropagate(int result)

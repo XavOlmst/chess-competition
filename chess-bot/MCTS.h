@@ -10,7 +10,7 @@
 
 namespace xoxo {
 
-    const double DEFAULT_VALUE = -0.1;
+    const double DEFAULT_VALUE = -0.3;
 
     class Node {
     public:
