@@ -3,9 +3,12 @@
 //
 
 #include "MCTS.h"
-#include "MinMax.h"
 
 namespace xoxo {
+
+    const double RAVE_FACTOR = 0.75;
+    const double EPSILON = 0.00000001;
+
 
     Node* Node::selectChild()
     {
@@ -17,7 +20,7 @@ namespace xoxo {
             double exploitation_term = static_cast<double>(child->wins) / (child->visits + 0.000001f);
             double exploration_term = 2.0 * sqrt(log(static_cast<double>(visits)) / (child->visits + 0.000001f));
 
-            double score = exploitation_term + exploration_term;
+            double score = exploitation_term + exploration_term + getRaveScore();
 
             if(score > best_score)
             {
@@ -104,6 +107,16 @@ namespace xoxo {
         }
     }
 
+    double Node::getRaveScore()
+    {
+        if(parent == nullptr) return 0;
+
+        double winRate = static_cast<double>(wins) / (visits + EPSILON);
+        double parentWinRate = static_cast<double>(parent->wins) / (parent->visits + EPSILON);
+
+        return ((RAVE_FACTOR * winRate) + ((1 - RAVE_FACTOR) * parentWinRate)) / (parent->visits + visits + EPSILON);
+    }
+
     void MCTS::search(int iterations) {
         for(int i = 0; i < iterations; i++)
         {
@@ -133,14 +146,7 @@ namespace xoxo {
         {
             double score;
 
-            if(child->visits > 0)
-            {
-                score = static_cast<double>(child->wins) / child->visits;
-            }
-            else
-            {
-                score = DEFAULT_VALUE;
-            }
+            score = static_cast<double>(child->wins) / (child->visits + EPSILON) + child->getRaveScore();
 
             if(score > best_score)
             {

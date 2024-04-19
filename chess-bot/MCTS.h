@@ -25,13 +25,10 @@ namespace xoxo {
         int wins = 0;
 
         Node* selectChild();
-
-
         void expand();
-
         int simulate();
-
         void backpropagate(int result);
+        double getRaveScore();
     };
 
     class MCTS {

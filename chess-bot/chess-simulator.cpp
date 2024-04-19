@@ -28,12 +28,13 @@ std::string ChessSimulator::Move(std::string fen) {
 
     xoxo::MCTS mcts(&board);
 
-    mcts.search(5);
+    mcts.search(3000);
 
     move = *mcts.getBestMove();
 
     auto piece = board.at(move.from());
 
+    //failsafe in case error
     if (moves.find(move) != -1 && piece != chess::Piece::NONE)
         return chess::uci::moveToUci(move);
 
