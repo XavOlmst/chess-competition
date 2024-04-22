@@ -9,6 +9,58 @@ namespace xoxo {
     const double RAVE_FACTOR = 0.75;
     const double EPSILON = 0.00000001;
 
+    int getMaterialScore(const chess::Board& board)
+    {
+        int materialScore = 0;
+
+        materialScore += 99999 * (board.pieces(chess::PieceType::KING, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::KING, chess::Color::BLACK).count());
+
+        materialScore += 900 * (board.pieces(chess::PieceType::QUEEN, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::QUEEN, chess::Color::BLACK).count());
+
+        materialScore += 500 * (board.pieces(chess::PieceType::ROOK, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::ROOK, chess::Color::BLACK).count());
+
+        materialScore += 330 * (board.pieces(chess::PieceType::BISHOP, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::BISHOP, chess::Color::BLACK).count());
+
+        materialScore += 320 * (board.pieces(chess::PieceType::KNIGHT, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::KNIGHT, chess::Color::BLACK).count());
+
+        materialScore += 100 * (board.pieces(chess::PieceType::PAWN, chess::Color::WHITE).count() -
+                board.pieces(chess::PieceType::PAWN, chess::Color::BLACK).count());
+
+        return board.sideToMove() == chess::Color::WHITE ? materialScore : -materialScore;
+    }
+
+    int getMobilityScore(const chess::Board& board) {
+        int mobilityScore = 0;
+
+        for(int i = 0; i < 64; i++) {
+            auto piece = board.at(chess::Square(i));
+
+            if(piece != chess::Piece::NONE) {
+                chess::Movelist moves;
+                chess::movegen::legalmoves(moves, board, piece.type());
+
+                piece.color() == board.sideToMove() ? mobilityScore += moves.size() : mobilityScore -= moves.size();
+            }
+        }
+
+        return mobilityScore;
+    }
+
+    int getBoardScore(chess::Board& board)
+    {
+        //determining the score of the board based on materials
+        int materialScore = getMaterialScore(board);
+        int mobilityScore = getMobilityScore(board);
+        //5.compare pawn structure
+
+        return materialScore + mobilityScore;// + kingSafety;
+    }
+
 
     Node* Node::selectChild()
     {
@@ -55,80 +107,68 @@ namespace xoxo {
             chess::Movelist moves;
             chess::movegen::legalmoves(moves, tempBoard);
 
+            
+            if(tempBoard.isGameOver().first == chess::GameResultReason::CHECKMATE)
             {
-                if(tempBoard.isGameOver().first == chess::GameResultReason::CHECKMATE)
-                {
-                    auto color = tempBoard.sideToMove();
-                    return (color == us) ? 1 : -1; //TODO: might need to swap these, not sure
-                }
-                else if(tempBoard.isGameOver().first != chess::GameResultReason::NONE)
-                {
-                    return DEFAULT_VALUE;
-                }
+                auto color = tempBoard.sideToMove();
+                return (color == us) ? -1 : 1; //TODO: might need to swap these, not sure
+            }
+            else if(tempBoard.isGameOver().first != chess::GameResultReason::NONE)
+            {
+                return DEFAULT_VALUE;
             }
 
-            bool madeMove = false;
-
-            for(chess::Move move : moves)
+            for(chess::Move& move : moves)
             {
-                if(tempBoard.isCapture(move) && tempBoard.sideToMove() != us)
-                {
-                    tempBoard.makeMove(move);
-                    madeMove = true;
-                    break;
-                }
-            }
-
-            if(!madeMove)
-            {
-                chess::Move move;
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_int_distribution<> dist(0, moves.size() - 1);
-
-                move = moves[dist(gen)];
-
                 tempBoard.makeMove(move);
+                int boardEval = getBoardScore(tempBoard);
+                move.setScore(boardEval);
+                tempBoard.unmakeMove(move);
             }
+
+            std::sort(moves.begin(), moves.end(), [](const chess::Move& a, const chess::Move& b)
+                { return a.score() > b.score(); });
+
+            tempBoard.makeMove(moves[0]);
 
         } while (true);
     }
 
-    void Node::backpropagate(int result)
+    void Node::backPropagate(int result)
     {
-        visits++;
-
-        if(result > 0)
-            wins++;
-
-        if(parent != nullptr)
+        Node* node = this;
+        while(node != nullptr)
         {
-            parent->backpropagate(result);
+            node->visits++;
+            if(result > 0)
+                node->wins++;
+
+            node = node->parent;
         }
     }
 
-    double Node::getRaveScore()
+    double Node::getRaveScore() const
     {
         if(parent == nullptr) return 0;
 
         double winRate = static_cast<double>(wins) / (visits + EPSILON);
         double parentWinRate = static_cast<double>(parent->wins) / (parent->visits + EPSILON);
 
-        return ((RAVE_FACTOR * winRate) + ((1 - RAVE_FACTOR) * parentWinRate)) / (parent->visits + visits + EPSILON);
+        return ((RAVE_FACTOR * winRate) + ((1 - RAVE_FACTOR) * parentWinRate)) / (parent->visits + EPSILON);
     }
 
-    void MCTS::search(int iterations) {
+    void MCTS::search(int iterations) const {
         for(int i = 0; i < iterations; i++)
         {
             Node* node = selectNode();
             node->expand();
             int results = node->simulate();
 
-            node->backpropagate(results);
+            node->backPropagate(results);
         }
     }
 
-    Node* MCTS::selectNode() {
+    Node* MCTS::selectNode() const {
         Node* currentNode = root;
         while(!currentNode->children.empty())
         {

@@ -27,8 +27,8 @@ namespace xoxo {
         Node* selectChild();
         void expand();
         int simulate();
-        void backpropagate(int result);
-        double getRaveScore();
+        void backPropagate(int result);
+        double getRaveScore() const;
     };
 
     class MCTS {
@@ -38,9 +38,9 @@ namespace xoxo {
 
         MCTS(const chess::Board* b) : board(*b), root(new Node(board, nullptr, nullptr)) {}
 
-        void search(int iterations);
+        void search(int iterations) const;
 
-        Node *selectNode();
+        Node *selectNode() const;
 
         chess::Move* getBestMove();
     };

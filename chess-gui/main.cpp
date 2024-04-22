@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
 
   auto piecesTextures = loadPiecesTextures(renderer);
 
-  chess::Board board;
+  chess::Board board("k7/8/8/8/7p/6pP/PP4Pr/K7 b - - 0 1");
 
   SDL_RendererInfo info;
   SDL_GetRendererInfo(renderer, &info);

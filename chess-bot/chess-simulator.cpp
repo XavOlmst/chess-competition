@@ -26,17 +26,20 @@ std::string ChessSimulator::Move(std::string fen) {
     if (moves.empty())
         return "";
 
-    xoxo::MCTS mcts(&board);
+    if(board.sideToMove() == chess::Color::BLACK)
+    {
+        xoxo::MCTS mcts(&board);
 
-    mcts.search(3000);
+        mcts.search(5);
 
-    move = *mcts.getBestMove();
+        move = *mcts.getBestMove();
 
-    auto piece = board.at(move.from());
+        auto piece = board.at(move.from());
 
-    //failsafe in case error
-    if (moves.find(move) != -1 && piece != chess::Piece::NONE)
-        return chess::uci::moveToUci(move);
+        //failsafe in case error
+        if (moves.find(move) != -1 && piece != chess::Piece::NONE)
+            return chess::uci::moveToUci(move);
+    }
 
     // get random move
     std::random_device rd;
