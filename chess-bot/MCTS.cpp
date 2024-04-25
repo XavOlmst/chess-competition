@@ -53,12 +53,16 @@ namespace xoxo {
 
     int getBoardScore(chess::Board& board)
     {
+        if(board.isGameOver().first == chess::GameResultReason::CHECKMATE)
+        {
+            return 1000;
+        }
         //determining the score of the board based on materials
         int materialScore = getMaterialScore(board);
-        int mobilityScore = getMobilityScore(board);
+        //int mobilityScore = getMobilityScore(board);
         //5.compare pawn structure
 
-        return materialScore + mobilityScore;// + kingSafety;
+        return 0;//materialScore;// + mobilityScore;// + kingSafety;
     }
 
 
@@ -72,7 +76,7 @@ namespace xoxo {
             double exploitation_term = static_cast<double>(child->wins) / (child->visits + 0.000001f);
             double exploration_term = 2.0 * sqrt(log(static_cast<double>(visits)) / (child->visits + 0.000001f));
 
-            double score = exploitation_term + exploration_term + getRaveScore();
+            double score = exploitation_term + getRaveScore()+ exploration_term;
 
             if(score > best_score)
             {
@@ -89,11 +93,11 @@ namespace xoxo {
         chess::Movelist moves;
         chess::movegen::legalmoves(moves, board);
 
-        for (chess::Move move: moves) {
+        for (chess::Move move : moves) {
             chess::Board tempBoard(board);
             tempBoard.makeMove(move);
 
-            Node* child = new Node(tempBoard, &move, this);
+            Node* child = new Node(tempBoard, &move, this, us);
             children.push_back(child);
         }
     }
@@ -107,11 +111,11 @@ namespace xoxo {
             chess::Movelist moves;
             chess::movegen::legalmoves(moves, tempBoard);
 
-            
+
             if(tempBoard.isGameOver().first == chess::GameResultReason::CHECKMATE)
             {
                 auto color = tempBoard.sideToMove();
-                return (color == us) ? -1 : 1; //TODO: might need to swap these, not sure
+                return (color == us) ? -1 : 1;
             }
             else if(tempBoard.isGameOver().first != chess::GameResultReason::NONE)
             {
@@ -121,6 +125,7 @@ namespace xoxo {
             for(chess::Move& move : moves)
             {
                 tempBoard.makeMove(move);
+                auto uciString = chess::uci::moveToUci(move);
                 int boardEval = getBoardScore(tempBoard);
                 move.setScore(boardEval);
                 tempBoard.unmakeMove(move);
@@ -129,6 +134,7 @@ namespace xoxo {
             std::sort(moves.begin(), moves.end(), [](const chess::Move& a, const chess::Move& b)
                 { return a.score() > b.score(); });
 
+            //move->setScore(moves[0].score());
             tempBoard.makeMove(moves[0]);
 
         } while (true);
@@ -157,6 +163,18 @@ namespace xoxo {
         return ((RAVE_FACTOR * winRate) + ((1 - RAVE_FACTOR) * parentWinRate)) / (parent->visits + EPSILON);
     }
 
+    Node::Node(chess::Board b, chess::Move *m, Node *p, chess::Color c){
+        board = (std::move(b));
+        us = (c);
+        move = (m);
+        parent = (p);
+        visits = (0);
+        wins = (0);
+
+        if(move != nullptr)
+            uciString = (chess::uci::moveToUci(*move));
+    }
+
     void MCTS::search(int iterations) const {
         for(int i = 0; i < iterations; i++)
         {
@@ -178,7 +196,7 @@ namespace xoxo {
         return currentNode;
     }
 
-    chess::Move* MCTS::getBestMove() {
+    Node* MCTS::getBestNode() {
         Node* best_child = nullptr;
         double best_score = -1;
 
@@ -193,8 +211,16 @@ namespace xoxo {
                 best_score = score;
                 best_child = child;
             }
+
+            if(score == best_score && child->children.size() < best_child->children.size())
+            {
+                best_child = child;
+            }
         }
 
-        return best_child->move;
+        if(best_child == nullptr)
+            return nullptr;
+
+        return best_child;
     }
 } // xoxo

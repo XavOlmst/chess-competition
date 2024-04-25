@@ -4,7 +4,6 @@
 // https://github.com/Disservin/chess-library
 #include "chess.hpp"
 #include <random>
-#include <map>
 #include "MCTS.h"
 using namespace ChessSimulator;
 
@@ -26,19 +25,19 @@ std::string ChessSimulator::Move(std::string fen) {
     if (moves.empty())
         return "";
 
-    if(board.sideToMove() == chess::Color::BLACK)
+    //if(board.sideToMove() == chess::Color::BLACK)
     {
         xoxo::MCTS mcts(&board);
 
-        mcts.search(5);
+        mcts.search(1000);
 
-        move = *mcts.getBestMove();
+        xoxo::Node* best = mcts.getBestNode();
 
         auto piece = board.at(move.from());
 
         //failsafe in case error
-        if (moves.find(move) != -1 && piece != chess::Piece::NONE)
-            return chess::uci::moveToUci(move);
+        //if (moves.find(move) != -1 && piece != chess::Piece::NONE)
+        return best->uciString;
     }
 
     // get random move

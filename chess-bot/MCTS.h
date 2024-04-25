@@ -6,6 +6,7 @@
 #define CHESS_MCTS_H
 
 #include <random>
+#include <utility>
 #include "chess.hpp"
 
 namespace xoxo {
@@ -14,7 +15,7 @@ namespace xoxo {
 
     class Node {
     public:
-        Node(chess::Board b, chess::Move* m, Node* p) : board(b), us(b.sideToMove()), move(m), parent(p), visits(0), wins(0) {}
+        Node(chess::Board b, chess::Move* m, Node* p, chess::Color c);
 
         chess::Board board;
         chess::Color us;
@@ -23,6 +24,7 @@ namespace xoxo {
         std::vector<Node*> children;
         int visits = 0;
         int wins = 0;
+        std::string uciString;
 
         Node* selectChild();
         void expand();
@@ -36,13 +38,13 @@ namespace xoxo {
         chess::Board board;
         Node* root;
 
-        MCTS(const chess::Board* b) : board(*b), root(new Node(board, nullptr, nullptr)) {}
+        MCTS(const chess::Board* b) : board(*b), root(new Node(board, nullptr, nullptr, board.sideToMove())) {}
 
         void search(int iterations) const;
 
         Node *selectNode() const;
 
-        chess::Move* getBestMove();
+        Node* getBestNode();
     };
 
 } // xoxo
