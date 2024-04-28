@@ -12,26 +12,29 @@ namespace xoxo {
     int getMaterialScore(const chess::Board& board)
     {
         int materialScore = 0;
+        chess::Color ourSide = board.sideToMove();
+        chess::Color theirSide = ourSide == chess::Color::WHITE ? chess::Color::BLACK : chess::Color::WHITE;
 
-        materialScore += 99999 * (board.pieces(chess::PieceType::KING, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::KING, chess::Color::BLACK).count());
 
-        materialScore += 900 * (board.pieces(chess::PieceType::QUEEN, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::QUEEN, chess::Color::BLACK).count());
+        materialScore += 99999 * (board.pieces(chess::PieceType::KING, ourSide).count() -
+                board.pieces(chess::PieceType::KING, theirSide).count());
 
-        materialScore += 500 * (board.pieces(chess::PieceType::ROOK, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::ROOK, chess::Color::BLACK).count());
+        materialScore += 900 * (board.pieces(chess::PieceType::QUEEN, ourSide).count() -
+                board.pieces(chess::PieceType::QUEEN, theirSide).count());
 
-        materialScore += 330 * (board.pieces(chess::PieceType::BISHOP, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::BISHOP, chess::Color::BLACK).count());
+        materialScore += 500 * (board.pieces(chess::PieceType::ROOK, ourSide).count() -
+                board.pieces(chess::PieceType::ROOK, theirSide).count());
 
-        materialScore += 320 * (board.pieces(chess::PieceType::KNIGHT, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::KNIGHT, chess::Color::BLACK).count());
+        materialScore += 330 * (board.pieces(chess::PieceType::BISHOP, ourSide).count() -
+                board.pieces(chess::PieceType::BISHOP, theirSide).count());
 
-        materialScore += 100 * (board.pieces(chess::PieceType::PAWN, chess::Color::WHITE).count() -
-                board.pieces(chess::PieceType::PAWN, chess::Color::BLACK).count());
+        materialScore += 320 * (board.pieces(chess::PieceType::KNIGHT, ourSide).count() -
+                board.pieces(chess::PieceType::KNIGHT, theirSide).count());
 
-        return board.sideToMove() == chess::Color::WHITE ? materialScore : -materialScore;
+        materialScore += 100 * (board.pieces(chess::PieceType::PAWN, ourSide).count() -
+                board.pieces(chess::PieceType::PAWN, theirSide).count());
+
+        return materialScore;
     }
 
     int getMobilityScore(const chess::Board& board) {
@@ -51,18 +54,46 @@ namespace xoxo {
         return mobilityScore;
     }
 
+    int getKingSafety(const chess::Board& board) {
+        int kingIndex = board.kingSq(board.sideToMove()).index();
+        int numAttackedSquares = 0;
+        //for each square around the king
+        for(int x = -1; x <= 1; x++)
+        {
+            for(int y = -1; y <= 1; y++)
+            {
+                chess::File curFile = chess::File(kingIndex % 8 + x);
+                chess::Rank curRank = chess::Rank(kingIndex / 8 + y);
+
+                if(!chess::Square::is_valid(curRank, curFile)) continue;
+
+                chess::Square sq = chess::Square(curFile, curRank);
+
+
+                if (board.isAttacked(sq, board.sideToMove()))
+                {
+                    numAttackedSquares++;
+                }
+            }
+        }
+
+        return numAttackedSquares;
+    }
+
     int getBoardScore(chess::Board& board)
     {
         if(board.isGameOver().first == chess::GameResultReason::CHECKMATE)
         {
-            return 1000;
+            return 10000;
         }
         //determining the score of the board based on materials
         int materialScore = getMaterialScore(board);
         //int mobilityScore = getMobilityScore(board);
         //5.compare pawn structure
+        int kingSafety = getKingSafety(board) * 10;
 
-        return 0;//materialScore;// + mobilityScore;// + kingSafety;
+
+        return kingSafety + materialScore;//materialScore;// + mobilityScore;// + kingSafety;
     }
 
 
